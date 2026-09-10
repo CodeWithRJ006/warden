@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -15,9 +16,31 @@ import (
 
 func main() {
 	engine := policy.NewHardcodedEngine()
-	vault := pii.NewMemoryVault()
+	var vault pii.Vault
+	var logger audit.Logger
+
+	ctx := context.Background()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL != "" {
+		pgVault, err := pii.NewPostgresVault(ctx, dbURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to DB for vault: %v", err)
+		}
+		vault = pgVault
+		
+		pgLogger, err := audit.NewPostgresLogger(ctx, dbURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to DB for logger: %v", err)
+		}
+		logger = pgLogger
+		log.Println("Using Postgres for Vault and Audit Logging")
+	} else {
+		vault = pii.NewMemoryVault()
+		logger = audit.NewStdoutLogger()
+		log.Println("WARNING: Using in-memory vault and stdout logger")
+	}
+
 	piiProc := pii.NewTokenizer(vault)
-	logger := audit.NewStdoutLogger()
 	executor := tools.NewMockExecutor()
 	var limiter middleware.RateLimiter
 	redisURL := os.Getenv("REDIS_URL")
