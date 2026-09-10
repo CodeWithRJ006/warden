@@ -13,8 +13,9 @@ type PolicyTrace struct {
 }
 
 type ModelTrace struct {
-	Invoked bool   `json:"invoked"`
-	Status  string `json:"status,omitempty"`
+	Invoked   bool   `json:"invoked"`
+	ModelName string `json:"model_name,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 type ToolTrace struct {
@@ -39,6 +40,7 @@ type Event struct {
 // Logger defines the interface for recording audit events.
 type Logger interface {
 	Log(ctx context.Context, event Event) error
+	GetLogs(ctx context.Context, limit int) ([]Event, error)
 }
 
 // StdoutLogger is a simple logger that writes to stdout.
@@ -56,3 +58,7 @@ func (l *StdoutLogger) Log(ctx context.Context, event Event) error {
 	log.Printf("[AUDIT] %s\n", string(b))
 	return nil
 }
+
+
+func (l *StdoutLogger) GetLogs(ctx context.Context, limit int) ([]Event, error) { return []Event{}, nil }
+

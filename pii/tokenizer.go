@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -93,7 +94,12 @@ func (t *Tokenizer) Process(ctx context.Context, input string) (string, error) {
 	if t.presidioURL != "" {
 		reqBody, _ := json.Marshal(PresidioRequest{Text: output, Language: "en"})
 		resp, err := http.Post(t.presidioURL+"/analyze", "application/json", bytes.NewBuffer(reqBody))
-		if err == nil && resp.StatusCode == http.StatusOK {
+		if err != nil {
+			return "", fmt.Errorf("presidio unavailable: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
 			var entities []PresidioEntity
 			if err := json.NewDecoder(resp.Body).Decode(&entities); err == nil {
 				// Naive replacement based on entities (in production we'd replace backwards to not mess up indices)

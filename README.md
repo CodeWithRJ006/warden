@@ -62,6 +62,8 @@ To move this prototype to real production infrastructure, the following are requ
 - Managed Redis/Postgres not implemented
 - Formal compliance certification not performed
 - Live Razorpay production tools not connected
+- **Idempotency-Keys**: Idempotency is designed for (interface exists) but not yet wired into the gateway. Rate limiting is fully implemented and verified, but idempotency is not.
+- **Real LLM Integrations**: The `external-model` in `docker-compose` is just an HTTP 200 nginx stub used to test routing/failover logic only, not a real LLM.
 
 ## Design Decisions (ADRs)
 - **ADR-001 Why deterministic policy?**: LLMs are non-deterministic; security boundaries cannot be.

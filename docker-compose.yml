@@ -9,6 +9,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - DB_URL=postgres://user:pass@db:5432/warden?sslmode=disable
       - PRESIDIO_URL=http://presidio-analyzer:3000
+      - LOCAL_MODEL_URL=http://local-model
+      - EXTERNAL_MODEL_URL=http://external-model
     depends_on:
       - redis
       - db
@@ -22,6 +24,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - DB_URL=postgres://user:pass@db:5432/warden?sslmode=disable
       - PRESIDIO_URL=http://presidio-analyzer:3000
+      - LOCAL_MODEL_URL=http://local-model
+      - EXTERNAL_MODEL_URL=http://external-model
     depends_on:
       - redis
       - db
@@ -50,3 +54,8 @@ services:
     image: mcr.microsoft.com/presidio-anonymizer
     ports:
       - "5002:3000"
+
+  external-model:
+    # stub: returns 200 OK, used to test routing/failover logic only - not a real model
+    image: nginx:alpine
+

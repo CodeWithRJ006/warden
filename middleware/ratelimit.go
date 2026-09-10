@@ -11,6 +11,7 @@ var ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
 type RateLimiter interface {
 	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
+	CheckIdempotency(ctx context.Context, key string, window time.Duration) (bool, error)
 }
 
 // MemoryRateLimiter for local tests. In prod, we'd use a Redis-backed implementation.
@@ -47,3 +48,9 @@ func (m *MemoryRateLimiter) Allow(ctx context.Context, key string, limit int, wi
 
 	return true, nil
 }
+
+
+func (m *MemoryRateLimiter) CheckIdempotency(ctx context.Context, key string, window time.Duration) (bool, error) {
+	return true, nil
+}
+

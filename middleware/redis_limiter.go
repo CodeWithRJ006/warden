@@ -45,3 +45,15 @@ func (r *RedisRateLimiter) Allow(ctx context.Context, key string, limit int, win
 	}
 	return res.(int64) == 1, nil
 }
+
+func (r *RedisRateLimiter) CheckIdempotency(ctx context.Context, key string, window time.Duration) (bool, error) {
+	redisKey := fmt.Sprintf("idempotency:%s", key)
+	// SETNX returns true if the key was set (meaning it's a new request)
+	// Returns false if key already exists (meaning it's a duplicate)
+	set, err := r.client.SetNX(ctx, redisKey, "1", window).Result()
+	if err != nil {
+		return false, err // Fail closed on error
+	}
+	return set, nil
+}
+

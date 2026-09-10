@@ -3,6 +3,7 @@ package pii
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -27,7 +28,9 @@ func NewPostgresVault(ctx context.Context, dbURL string) (*PostgresVault, error)
 		)
 	`)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "42P07") {
+			return nil, err
+		}
 	}
 	
 	return &PostgresVault{pool: pool}, nil

@@ -19,9 +19,15 @@ type mockLogger struct {
 	events []audit.Event
 }
 
+type MockRouter struct{}
+
 func (m *mockLogger) Log(ctx context.Context, event audit.Event) error {
 	m.events = append(m.events, event)
 	return nil
+}
+
+func (m *mockLogger) GetLogs(ctx context.Context, limit int) ([]audit.Event, error) {
+	return m.events, nil
 }
 
 func TestHandleExecute(t *testing.T) {
@@ -31,7 +37,7 @@ func TestHandleExecute(t *testing.T) {
 	logger := &mockLogger{}
 	executor := tools.NewMockExecutor()
 	limiter := middleware.NewMemoryRateLimiter()
-	handler := HandleExecute(engine, piiProc, executor, logger, limiter)
+	handler := HandleExecute(engine, piiProc, executor, logger, limiter, &MockRouter{})
 
 	tests := []struct {
 		name           string
@@ -106,3 +112,7 @@ func TestHandleExecute(t *testing.T) {
 		t.Errorf("expected audit events to be generated, got 0")
 	}
 }
+
+
+func (m *MockRouter) Route(ctx context.Context, dataClass string) (string, error) { return "local_model", nil }
+

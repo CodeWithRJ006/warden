@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -27,7 +28,9 @@ func NewPostgresLogger(ctx context.Context, dbURL string) (*PostgresLogger, erro
 		)
 	`)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "42P07") {
+			return nil, err
+		}
 	}
 	
 	return &PostgresLogger{pool: pool}, nil
@@ -43,3 +46,19 @@ func (p *PostgresLogger) Log(ctx context.Context, event Event) error {
 	
 	return err
 }
+
+func (p *PostgresLogger) GetLogs(ctx context.Context, limit int) ([]Event, error) {
+	rows, err := p.pool.Query(ctx, "SELECT trace FROM audit_events ORDER BY id DESC LIMIT $1", limit)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var events []Event
+	for rows.Next() {
+		var traceStr string
+		if err := rows.Scan(&traceStr); err != nil { continue }
+		var event Event
+		json.Unmarshal([]byte(traceStr), &event)
+		events = append(events, event)
+	}
+	return events, nil
+}
+

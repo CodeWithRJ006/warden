@@ -57,7 +57,13 @@ func main() {
 		log.Println("WARNING: Using in-memory rate limiter (not suitable for multiple instances)")
 	}
 
-	http.HandleFunc("/v1/tools/execute", server.HandleExecute(engine, piiProc, executor, logger, limiter))
+	router := &server.HttpModelRouter{
+		LocalURL:    os.Getenv("LOCAL_MODEL_URL"),
+		ExternalURL: os.Getenv("EXTERNAL_MODEL_URL"),
+	}
+
+	http.HandleFunc("/v1/tools/execute", server.HandleExecute(engine, piiProc, executor, logger, limiter, router))
+	http.HandleFunc("/v1/audit/logs", server.HandleGetLogs(logger))
 
 	log.Println("Warden Gateway starting on :8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
