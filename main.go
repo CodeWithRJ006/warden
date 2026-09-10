@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/CodeWithRJ006/warden/audit"
 	"github.com/CodeWithRJ006/warden/middleware"
@@ -18,7 +19,19 @@ func main() {
 	piiProc := pii.NewTokenizer(vault)
 	logger := audit.NewStdoutLogger()
 	executor := tools.NewMockExecutor()
-	limiter := middleware.NewMemoryRateLimiter()
+	var limiter middleware.RateLimiter
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL != "" {
+		rl, err := middleware.NewRedisRateLimiter(redisURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to Redis: %v", err)
+		}
+		limiter = rl
+		log.Println("Using Redis for distributed rate limiting")
+	} else {
+		limiter = middleware.NewMemoryRateLimiter()
+		log.Println("WARNING: Using in-memory rate limiter (not suitable for multiple instances)")
+	}
 
 	http.HandleFunc("/v1/tools/execute", server.HandleExecute(engine, piiProc, executor, logger, limiter))
 
