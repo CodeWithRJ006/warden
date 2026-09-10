@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/CodeWithRJ006/warden/audit"
+	"github.com/CodeWithRJ006/warden/middleware"
 	"github.com/CodeWithRJ006/warden/pii"
 	"github.com/CodeWithRJ006/warden/policy"
 	"github.com/CodeWithRJ006/warden/tools"
@@ -31,7 +32,7 @@ type ErrorResponse struct {
 }
 
 // HandleExecute returns the HTTP handler for /v1/tools/execute.
-func HandleExecute(engine policy.Engine, piiProc pii.Processor, executor tools.Executor, logger audit.Logger) http.HandlerFunc {
+func HandleExecute(engine policy.Engine, piiProc pii.Processor, executor tools.Executor, logger audit.Logger, limiter middleware.RateLimiter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -47,6 +48,14 @@ func HandleExecute(engine policy.Engine, piiProc pii.Processor, executor tools.E
 		// Validation
 		if req.Actor == "" || req.Tool == "" {
 			writeJSONError(w, http.StatusBadRequest, "Missing required fields: actor and tool")
+			return
+		}
+
+		// Rate Limiting (10 req / minute per actor)
+		allowed, err := limiter.Allow(r.Context(), req.Actor, 10, time.Minute)
+		if err != nil || !allowed {
+			logEvent(r.Context(), logger, req, "RATE_LIMITED", "exceeded rate limit")
+			writeJSONError(w, http.StatusTooManyRequests, "Rate limit exceeded")
 			return
 		}
 

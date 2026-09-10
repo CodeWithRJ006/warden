@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/CodeWithRJ006/warden/audit"
+	"github.com/CodeWithRJ006/warden/middleware"
 	"github.com/CodeWithRJ006/warden/pii"
 	"github.com/CodeWithRJ006/warden/policy"
 	"github.com/CodeWithRJ006/warden/tools"
@@ -29,7 +30,8 @@ func TestHandleExecute(t *testing.T) {
 	piiProc := pii.NewTokenizer(vault)
 	logger := &mockLogger{}
 	executor := tools.NewMockExecutor()
-	handler := HandleExecute(engine, piiProc, executor, logger)
+	limiter := middleware.NewMemoryRateLimiter()
+	handler := HandleExecute(engine, piiProc, executor, logger, limiter)
 
 	tests := []struct {
 		name           string
