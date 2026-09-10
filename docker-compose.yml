@@ -1,13 +1,27 @@
 version: '3.8'
 
 services:
-  gateway:
+  gateway-1:
     build: .
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
-      - REDIS_URL=redis:6379
-      - DB_URL=postgres://user:pass@db:5432/warden
+      - REDIS_URL=redis://redis:6379/0
+      - DB_URL=postgres://user:pass@db:5432/warden?sslmode=disable
+      - PRESIDIO_URL=http://presidio-analyzer:3000
+    depends_on:
+      - redis
+      - db
+      - presidio-analyzer
+
+  gateway-2:
+    build: .
+    ports:
+      - "8082:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_URL=postgres://user:pass@db:5432/warden?sslmode=disable
+      - PRESIDIO_URL=http://presidio-analyzer:3000
     depends_on:
       - redis
       - db
