@@ -7,15 +7,33 @@ import (
 	"time"
 )
 
-// Event represents a structured audit log entry.
+type PolicyTrace struct {
+	Decision string `json:"decision"`
+	Rule     string `json:"rule"`
+}
+
+type ModelTrace struct {
+	Invoked bool   `json:"invoked"`
+	Status  string `json:"status,omitempty"`
+}
+
+type ToolTrace struct {
+	Executed bool   `json:"executed"`
+	Status   string `json:"status,omitempty"`
+}
+
+// Event represents a structured audit log entry (Decision Trace).
 type Event struct {
-	Timestamp time.Time `json:"timestamp"`
-	Actor     string    `json:"actor"`
-	Action    string    `json:"action"`
-	Amount    float64   `json:"amount,omitempty"`
-	Decision  string    `json:"decision"`
-	Reason    string    `json:"reason"`
-	PolicyVer string    `json:"policy_version"`
+	RequestID          string      `json:"request_id"`
+	Actor              string      `json:"actor"`
+	Tool               string      `json:"requested_tool"`
+	PolicyVersion      string      `json:"policy_version"`
+	DataClassification string      `json:"data_classification"`
+	Policy             PolicyTrace `json:"policy"`
+	Model              ModelTrace  `json:"model"`
+	ToolExec           ToolTrace   `json:"tool"`
+	FinalDecision      string      `json:"final_decision"`
+	Timestamp          time.Time   `json:"timestamp"`
 }
 
 // Logger defines the interface for recording audit events.
