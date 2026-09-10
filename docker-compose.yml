@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis:6379
+      - DB_URL=postgres://user:pass@db:5432/warden
+    depends_on:
+      - redis
+      - db
+      - presidio-analyzer
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: warden
+    ports:
+      - "5432:5432"
+
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer
+    ports:
+      - "5001:3000"
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer
+    ports:
+      - "5002:3000"
