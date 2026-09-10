@@ -1,0 +1,103 @@
+package server
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/CodeWithRJ006/warden/audit"
+	"github.com/CodeWithRJ006/warden/pii"
+	"github.com/CodeWithRJ006/warden/policy"
+)
+
+type mockLogger struct {
+	events []audit.Event
+}
+
+func (m *mockLogger) Log(ctx context.Context, event audit.Event) error {
+	m.events = append(m.events, event)
+	return nil
+}
+
+func TestHandleExecute(t *testing.T) {
+	engine := policy.NewHardcodedEngine()
+	piiProc := pii.NewMockProcessor()
+	logger := &mockLogger{}
+	handler := HandleExecute(engine, piiProc, logger)
+
+	tests := []struct {
+		name           string
+		body           map[string]interface{}
+		expectedStatus int
+		expectedDec    policy.Decision
+	}{
+		{
+			name: "valid request - allowed",
+			body: map[string]interface{}{
+				"actor":  "finance-operator",
+				"tool":   "create_refund",
+				"amount": 50.0,
+			},
+			expectedStatus: http.StatusOK,
+			expectedDec:    policy.DecisionAllow,
+		},
+		{
+			name: "valid request - require approval",
+			body: map[string]interface{}{
+				"actor":  "finance-operator",
+				"tool":   "create_refund",
+				"amount": 50000.0,
+			},
+			expectedStatus: http.StatusOK,
+			expectedDec:    policy.DecisionRequireApproval,
+		},
+		{
+			name: "missing actor",
+			body: map[string]interface{}{
+				"tool": "create_refund",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "malformed JSON",
+			body: nil,
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var bodyBytes []byte
+			if tt.body != nil {
+				bodyBytes, _ = json.Marshal(tt.body)
+			} else {
+				bodyBytes = []byte("{invalid json")
+			}
+
+			req, _ := http.NewRequest(http.MethodPost, "/v1/tools/execute", bytes.NewBuffer(bodyBytes))
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
+			}
+
+			if tt.expectedStatus == http.StatusOK {
+				var resp ExecuteResponse
+				json.NewDecoder(rr.Body).Decode(&resp)
+				if resp.Decision != tt.expectedDec {
+					t.Errorf("handler returned wrong decision: got %v want %v", resp.Decision, tt.expectedDec)
+				}
+			}
+		})
+	}
+
+	// Verify that audit logs were generated for valid requests
+	if len(logger.events) == 0 {
+		t.Errorf("expected audit events to be generated, got 0")
+	}
+}
