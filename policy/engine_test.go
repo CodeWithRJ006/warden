@@ -16,9 +16,34 @@ func TestHardcodedEngine_Evaluate(t *testing.T) {
 		wantErr      bool
 	}{
 		{
-			name:         "admin bypass",
-			req:          RequestCtx{Role: "admin", Action: "capture_payment"},
+			name:         "finance-manager get payment",
+			req:          RequestCtx{Role: "finance-manager", Action: "get_payment"},
 			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "finance-manager refund under limit",
+			req:          RequestCtx{Role: "finance-manager", Action: "create_refund", Amount: 50000.0},
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "finance-manager refund over limit",
+			req:          RequestCtx{Role: "finance-manager", Action: "create_refund", Amount: 150000.0},
+			wantDecision: DecisionRequireApproval,
+		},
+		{
+			name:         "finance-operator refund under limit",
+			req:          RequestCtx{Role: "finance-operator", Action: "create_refund", Amount: 5000.0},
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "finance-operator refund over limit",
+			req:          RequestCtx{Role: "finance-operator", Action: "create_refund", Amount: 50000.0},
+			wantDecision: DecisionRequireApproval,
+		},
+		{
+			name:         "finance-operator fetch settlement denied",
+			req:          RequestCtx{Role: "finance-operator", Action: "fetch_settlement"},
+			wantDecision: DecisionDeny,
 		},
 		{
 			name:         "support agent get payment",
@@ -26,24 +51,19 @@ func TestHardcodedEngine_Evaluate(t *testing.T) {
 			wantDecision: DecisionAllow,
 		},
 		{
-			name:         "support agent refund under limit",
+			name:         "support agent fetch settlement redaction",
+			req:          RequestCtx{Role: "support-agent", Action: "fetch_settlement"},
+			wantDecision: DecisionRedactAndAllow,
+		},
+		{
+			name:         "support agent refund denied",
 			req:          RequestCtx{Role: "support-agent", Action: "create_refund", Amount: 50.0},
-			wantDecision: DecisionAllow,
-		},
-		{
-			name:         "support agent refund over limit",
-			req:          RequestCtx{Role: "support-agent", Action: "create_refund", Amount: 150.0},
-			wantDecision: DecisionRequireApproval,
-		},
-		{
-			name:         "support agent unauthorized action",
-			req:          RequestCtx{Role: "support-agent", Action: "capture_payment"},
 			wantDecision: DecisionDeny,
 		},
 		{
-			name:         "viewer get payment",
+			name:         "viewer get payment redaction",
 			req:          RequestCtx{Role: "viewer", Action: "get_payment"},
-			wantDecision: DecisionAllow,
+			wantDecision: DecisionRedactAndAllow,
 		},
 		{
 			name:         "viewer mutate action",
@@ -52,14 +72,9 @@ func TestHardcodedEngine_Evaluate(t *testing.T) {
 		},
 		{
 			name:         "missing fields",
-			req:          RequestCtx{Role: "admin"},
+			req:          RequestCtx{Role: "finance-operator"},
 			wantDecision: "",
 			wantErr:      true,
-		},
-		{
-			name:         "support agent fetch settlement redaction",
-			req:          RequestCtx{Role: "support-agent", Action: "fetch_settlement"},
-			wantDecision: DecisionRedactAndAllow,
 		},
 	}
 

@@ -33,7 +33,7 @@ type Engine interface {
 	Evaluate(ctx context.Context, req RequestCtx) (Result, error)
 }
 
-// HardcodedEngine implements Engine with static rules for Day 1.
+// HardcodedEngine implements Engine with static rules.
 type HardcodedEngine struct{}
 
 // NewHardcodedEngine creates a new HardcodedEngine.
@@ -47,43 +47,55 @@ func (e *HardcodedEngine) Evaluate(ctx context.Context, req RequestCtx) (Result,
 		return Result{}, errors.New("role and action are required")
 	}
 
-	// Rule 1: Admins can do anything
-	if req.Role == "admin" {
-		return Result{Decision: DecisionAllow, Reason: "admin bypass"}, nil
+	// Finance Manager rules (high privilege)
+	if req.Role == "finance-manager" {
+		switch req.Action {
+		case "get_payment", "capture_payment", "fetch_settlement":
+			return Result{Decision: DecisionAllow, Reason: "finance manager has full access to this action"}, nil
+		case "create_refund":
+			if req.Amount > 0 && req.Amount <= 100000 {
+				return Result{Decision: DecisionAllow, Reason: "refund amount within manager limits"}, nil
+			}
+			if req.Amount > 100000 {
+				return Result{Decision: DecisionRequireApproval, Reason: "refund amount exceeds manager limits"}, nil
+			}
+			return Result{Decision: DecisionDeny, Reason: "unquantified refund not allowed"}, nil
+		}
 	}
 
-	// Support agent rules
+	// Finance Operator rules (medium privilege)
+	if req.Role == "finance-operator" {
+		switch req.Action {
+		case "get_payment", "capture_payment":
+			return Result{Decision: DecisionAllow, Reason: "finance operator can process payments"}, nil
+		case "create_refund":
+			if req.Amount > 0 && req.Amount <= 10000 {
+				return Result{Decision: DecisionAllow, Reason: "refund amount within operator limits"}, nil
+			}
+			if req.Amount > 10000 {
+				return Result{Decision: DecisionRequireApproval, Reason: "refund amount exceeds operator limits"}, nil
+			}
+			return Result{Decision: DecisionDeny, Reason: "unquantified refund not allowed"}, nil
+		}
+	}
+
+	// Support agent rules (low privilege)
 	if req.Role == "support-agent" {
 		switch req.Action {
 		case "get_payment":
 			return Result{Decision: DecisionAllow, Reason: "support agents can view payments"}, nil
-		case "create_refund":
-			// Rule 2: Support agents can refund up to $100 without approval
-			if req.Amount > 0 && req.Amount <= 100 {
-				return Result{Decision: DecisionAllow, Reason: "refund amount within support limits"}, nil
-			}
-			// Rule 3: Support agents require approval for refunds over $100
-			if req.Amount > 100 {
-				return Result{Decision: DecisionRequireApproval, Reason: "refund amount exceeds support limits"}, nil
-			}
-			// Default deny for refunds without amount
-			return Result{Decision: DecisionDeny, Reason: "support agents cannot issue unquantified refunds"}, nil
 		case "fetch_settlement":
 			return Result{Decision: DecisionRedactAndAllow, Reason: "support agents can view settlements but PII is redacted"}, nil
-		default:
-			// Default deny
-			return Result{Decision: DecisionDeny, Reason: "action not allowed for support agent"}, nil
 		}
 	}
 
-	// Rule 4: Read-only users can only get data
+	// Viewer rules (read-only)
 	if req.Role == "viewer" {
 		if req.Action == "get_payment" || req.Action == "fetch_settlement" {
-			return Result{Decision: DecisionAllow, Reason: "viewers can view data"}, nil
+			return Result{Decision: DecisionRedactAndAllow, Reason: "viewers can view data with PII redacted"}, nil
 		}
-		return Result{Decision: DecisionDeny, Reason: "viewers cannot modify data"}, nil
 	}
 
 	// Default policy: deny
-	return Result{Decision: DecisionDeny, Reason: "no matching policy found"}, nil
+	return Result{Decision: DecisionDeny, Reason: "no matching policy found or action not allowed for role"}, nil
 }
