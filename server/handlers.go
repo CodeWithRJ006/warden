@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/CodeWithRJ006/warden/audit"
-	"github.com/CodeWithRJ006/warden/policy"
 	"github.com/CodeWithRJ006/warden/pii"
+	"github.com/CodeWithRJ006/warden/policy"
+	"github.com/CodeWithRJ006/warden/tools"
 )
 
 type ExecuteRequest struct {
@@ -18,8 +20,10 @@ type ExecuteRequest struct {
 }
 
 type ExecuteResponse struct {
-	Decision policy.Decision `json:"decision"`
-	Reason   string          `json:"reason"`
+	Decision   policy.Decision `json:"decision"`
+	Reason     string          `json:"reason"`
+	ToolStatus string          `json:"tool_status,omitempty"`
+	ToolResult string          `json:"tool_result,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -27,7 +31,7 @@ type ErrorResponse struct {
 }
 
 // HandleExecute returns the HTTP handler for /v1/tools/execute.
-func HandleExecute(engine policy.Engine, piiProc pii.Processor, logger audit.Logger) http.HandlerFunc {
+func HandleExecute(engine policy.Engine, piiProc pii.Processor, executor tools.Executor, logger audit.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -46,9 +50,8 @@ func HandleExecute(engine policy.Engine, piiProc pii.Processor, logger audit.Log
 			return
 		}
 
-		// PII Processing (Mocked for Day 2)
-		// Assuming we will process some payload arguments in the future.
-		_, err := piiProc.Process(r.Context(), req.Tool)
+		// PII Processing (Mocked/Regex)
+		sanitizedTool, err := piiProc.Process(r.Context(), req.Tool)
 		if err != nil {
 			logEvent(r.Context(), logger, req, "ERROR", "PII processing failed")
 			writeJSONError(w, http.StatusInternalServerError, "Internal Server Error")
@@ -58,16 +61,30 @@ func HandleExecute(engine policy.Engine, piiProc pii.Processor, logger audit.Log
 		// Policy Evaluation
 		policyReq := policy.RequestCtx{
 			Role:   req.Actor,
-			Action: req.Tool,
+			Action: sanitizedTool,
 			Amount: req.Amount,
 		}
 
 		result, err := engine.Evaluate(r.Context(), policyReq)
 		if err != nil {
-			// Write audit event even on error
 			logEvent(r.Context(), logger, req, "ERROR", err.Error())
 			writeJSONError(w, http.StatusInternalServerError, "Policy evaluation failed")
 			return
+		}
+
+		// Tool Execution (if allowed)
+		var toolResp tools.ToolResponse
+		if result.Decision == policy.DecisionAllow || result.Decision == policy.DecisionRedactAndAllow {
+			toolReq := tools.ToolRequest{
+				Name:   req.Tool,
+				Amount: req.Amount,
+			}
+			toolResp, err = executor.Execute(r.Context(), toolReq)
+			if err != nil {
+				logEvent(r.Context(), logger, req, string(result.Decision), fmt.Sprintf("tool execution failed: %v", err))
+				writeJSONError(w, http.StatusInternalServerError, "Tool execution failed")
+				return
+			}
 		}
 
 		// Audit Event
@@ -75,10 +92,12 @@ func HandleExecute(engine policy.Engine, piiProc pii.Processor, logger audit.Log
 
 		// Response
 		resp := ExecuteResponse{
-			Decision: result.Decision,
-			Reason:   result.Reason,
+			Decision:   result.Decision,
+			Reason:     result.Reason,
+			ToolStatus: toolResp.Status,
+			ToolResult: toolResp.Result,
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(resp)

@@ -11,6 +11,7 @@ import (
 	"github.com/CodeWithRJ006/warden/audit"
 	"github.com/CodeWithRJ006/warden/pii"
 	"github.com/CodeWithRJ006/warden/policy"
+	"github.com/CodeWithRJ006/warden/tools"
 )
 
 type mockLogger struct {
@@ -27,7 +28,8 @@ func TestHandleExecute(t *testing.T) {
 	vault := pii.NewMemoryVault()
 	piiProc := pii.NewTokenizer(vault)
 	logger := &mockLogger{}
-	handler := HandleExecute(engine, piiProc, logger)
+	executor := tools.NewMockExecutor()
+	handler := HandleExecute(engine, piiProc, executor, logger)
 
 	tests := []struct {
 		name           string
