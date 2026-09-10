@@ -12,7 +12,8 @@ import (
 
 func main() {
 	engine := policy.NewHardcodedEngine()
-	piiProc := pii.NewMockProcessor()
+	vault := pii.NewMemoryVault()
+	piiProc := pii.NewTokenizer(vault)
 	logger := audit.NewStdoutLogger()
 
 	http.HandleFunc("/v1/tools/execute", server.HandleExecute(engine, piiProc, logger))
