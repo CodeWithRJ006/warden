@@ -63,6 +63,7 @@ To move this prototype to real production infrastructure, the following are requ
 - Formal compliance certification not performed
 - Live Razorpay production tools not connected
 - **Idempotency-Keys**: Idempotency is designed for (interface exists) but not yet wired into the gateway. Rate limiting is fully implemented and verified, but idempotency is not.
+- **Detokenization**: The gateway tokenizes raw inputs (e.g., "John Doe" -> `[PERSON_001]`) and passes the raw input to the tool for simplicity in this prototype. In production, the model would output the tool execution instruction using the token, and the gateway would detokenize it via the Vault before hitting the financial backend.
 - **Real LLM Integrations**: The `external-model` in `docker-compose` is just an HTTP 200 nginx stub used to test routing/failover logic only, not a real LLM.
 
 ## Design Decisions (ADRs)
@@ -73,6 +74,7 @@ To move this prototype to real production infrastructure, the following are requ
 - **ADR-005 Why PostgreSQL?**: Strict schema enforcement and atomic sequences for the token vault and audit trail.
 - **ADR-006 Why no Kafka?**: Reduces operational complexity for synchronous HTTP gateways.
 - **ADR-007 Why fail closed?**: In financial contexts, unavailability is preferable to an unsafe execution or PII leak.
+- **ADR-008 How identity is verified**: Identity (`X-Warden-Actor`) must be injected by a trusted upstream context (e.g. an API Gateway validating an OIDC session), never from the untrusted LLM JSON payload.
 
 ---
 *Built with AI pair-programming tools; every architectural decision and the security model were designed and validated by me.*

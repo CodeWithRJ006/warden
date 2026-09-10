@@ -1,16 +1,28 @@
-Write-Host "DEMO: Local model down + RESTRICTED data (John Doe)"
-try {
-    $response = Invoke-RestMethod -Uri "http://localhost:8081/v1/tools/execute" -Method Post -Body '{"actor":"finance-operator","tool":"create_refund for John Doe","amount":50.0}' -ContentType "application/json" -ErrorAction Stop
-    Write-Host "Decision:" $response.decision "Reason:" $response.reason
-} catch {
-    Write-Host "Failed:" $_.Exception.Message
-}
-Write-Host "---"
+﻿$ErrorActionPreference = "Stop"
 
+function Invoke-Warden {
+    param($Uri, $Actor, $Tool, $Amount)
+    $body = @{ tool=$Tool; amount=$Amount } | ConvertTo-Json
+    try {
+        return Invoke-RestMethod -Uri $Uri -Method Post -Body $body -ContentType "application/json" -Headers @{"X-Warden-Actor"=$Actor}
+    } catch {
+        return $_
+    }
+}
+
+Write-Host "DEMO: Local model down + RESTRICTED data (John Doe)"
+$res = Invoke-Warden "http://localhost:8081/v1/tools/execute" "support-agent" "get_payment for John Doe" 10.0
+if ($res -is [System.Management.Automation.ErrorRecord]) {
+    Write-Host "Failed: $($res.Exception.Message)" -ForegroundColor Red
+} else {
+    Write-Host "Success: allowed"
+}
+
+Write-Host "---"
 Write-Host "DEMO: Local model down + CLEAN data (no PII)"
-try {
-    $response2 = Invoke-RestMethod -Uri "http://localhost:8081/v1/tools/execute" -Method Post -Body '{"actor":"finance-operator","tool":"create_refund","amount":50.0}' -ContentType "application/json" -ErrorAction Stop
-    Write-Host "Decision:" $response2.decision "Reason:" $response2.reason
-} catch {
-    Write-Host "Failed:" $_.Exception.Message
+$res = Invoke-Warden "http://localhost:8081/v1/tools/execute" "support-agent" "get_payment" 10.0
+if ($res -is [System.Management.Automation.ErrorRecord]) {
+    Write-Host "Failed: $($res.Exception.Message)" -ForegroundColor Red
+} else {
+    Write-Host "Success: $($res.decision)" -ForegroundColor Green
 }

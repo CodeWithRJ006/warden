@@ -1,4 +1,4 @@
-package server
+﻿package server
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 )
 
 type ExecuteRequest struct {
-	Actor  string  `json:"actor"`
+	Actor  string  `json:"-"`
 	Tool   string  `json:"tool"`
 	Amount float64 `json:"amount,omitempty"`
 }
@@ -84,11 +84,18 @@ func HandleExecute(engine policy.Engine, piiProc pii.Processor, executor tools.E
 			return
 		}
 
+		actor := r.Header.Get("X-Warden-Actor")
+		if actor == "" {
+			writeJSONError(w, http.StatusUnauthorized, "Missing X-Warden-Actor header")
+			return
+		}
+
 		var req ExecuteRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload")
 			return
 		}
+		req.Actor = actor
 
 		// Validation
 		if req.Actor == "" || req.Tool == "" {
