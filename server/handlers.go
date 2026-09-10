@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/CodeWithRJ006/warden/audit"
