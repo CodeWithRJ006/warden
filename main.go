@@ -40,7 +40,8 @@ func main() {
 		log.Println("WARNING: Using in-memory vault and stdout logger")
 	}
 
-	piiProc := pii.NewTokenizer(vault)
+	presidioURL := os.Getenv("PRESIDIO_URL")
+	piiProc := pii.NewTokenizer(vault, presidioURL)
 	executor := tools.NewMockExecutor()
 	var limiter middleware.RateLimiter
 	redisURL := os.Getenv("REDIS_URL")

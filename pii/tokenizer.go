@@ -1,19 +1,34 @@
 package pii
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"net/http"
 	"regexp"
 	"strings"
 )
 
 // Tokenizer orchestrates PII detection and tokenization.
 type Tokenizer struct {
-	vault Vault
-	// In production, we would also call Presidio here.
+	vault       Vault
+	presidioURL string
 }
 
-func NewTokenizer(vault Vault) *Tokenizer {
-	return &Tokenizer{vault: vault}
+func NewTokenizer(vault Vault, presidioURL string) *Tokenizer {
+	return &Tokenizer{vault: vault, presidioURL: presidioURL}
+}
+
+type PresidioRequest struct {
+	Text     string `json:"text"`
+	Language string `json:"language"`
+}
+
+type PresidioEntity struct {
+	Start      int     `json:"start"`
+	End        int     `json:"end"`
+	EntityType string  `json:"entity_type"`
+	Score      float64 `json:"score"`
 }
 
 // Regex patterns for fallback deterministic detection
@@ -55,7 +70,7 @@ func isLuhnValid(number string) bool {
 func (t *Tokenizer) Process(ctx context.Context, input string) (string, error) {
 	output := input
 
-	// Detect and tokenize PAN (Deterministic boundary)
+	// 1. Deterministic Layer (Regex + Luhn)
 	output = panRegex.ReplaceAllStringFunc(output, func(match string) string {
 		if isLuhnValid(match) {
 			token, _ := t.vault.Store(ctx, "CARD", match)
@@ -64,23 +79,45 @@ func (t *Tokenizer) Process(ctx context.Context, input string) (string, error) {
 		return match
 	})
 
-	// Detect and tokenize Email
 	output = emailRegex.ReplaceAllStringFunc(output, func(match string) string {
 		token, _ := t.vault.Store(ctx, "EMAIL", match)
 		return token
 	})
 
-	// Detect and tokenize Phone
 	output = phoneRegex.ReplaceAllStringFunc(output, func(match string) string {
 		token, _ := t.vault.Store(ctx, "PHONE", match)
 		return token
 	})
 
-	// Mocking Presidio PERSON detection
-	output = personMock.ReplaceAllStringFunc(output, func(match string) string {
-		token, _ := t.vault.Store(ctx, "PERSON", match)
-		return token
-	})
+	// 2. Presidio Layer
+	if t.presidioURL != "" {
+		reqBody, _ := json.Marshal(PresidioRequest{Text: output, Language: "en"})
+		resp, err := http.Post(t.presidioURL+"/analyze", "application/json", bytes.NewBuffer(reqBody))
+		if err == nil && resp.StatusCode == http.StatusOK {
+			var entities []PresidioEntity
+			if err := json.NewDecoder(resp.Body).Decode(&entities); err == nil {
+				// Naive replacement based on entities (in production we'd replace backwards to not mess up indices)
+				// For prototype, we'll extract the substrings and replace them.
+				for _, e := range entities {
+					if e.Start < len(output) && e.End <= len(output) {
+						raw := output[e.Start:e.End]
+						// Skip if we already tokenized it (e.g. contains '[')
+						if !strings.Contains(raw, "[") {
+							token, _ := t.vault.Store(ctx, e.EntityType, raw)
+							output = strings.Replace(output, raw, token, 1)
+						}
+					}
+				}
+			}
+			resp.Body.Close()
+		}
+	} else {
+		// Mocking Presidio PERSON detection for tests if URL is not set
+		output = personMock.ReplaceAllStringFunc(output, func(match string) string {
+			token, _ := t.vault.Store(ctx, "PERSON", match)
+			return token
+		})
+	}
 
 	return output, nil
 }

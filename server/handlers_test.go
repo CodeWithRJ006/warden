@@ -27,7 +27,7 @@ func (m *mockLogger) Log(ctx context.Context, event audit.Event) error {
 func TestHandleExecute(t *testing.T) {
 	engine := policy.NewHardcodedEngine()
 	vault := pii.NewMemoryVault()
-	piiProc := pii.NewTokenizer(vault)
+	piiProc := pii.NewTokenizer(vault, "")
 	logger := &mockLogger{}
 	executor := tools.NewMockExecutor()
 	limiter := middleware.NewMemoryRateLimiter()

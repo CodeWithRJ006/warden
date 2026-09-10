@@ -8,7 +8,7 @@ import (
 
 func TestTokenizer_Process(t *testing.T) {
 	vault := NewMemoryVault()
-	tokenizer := NewTokenizer(vault)
+	tokenizer := NewTokenizer(vault, "")
 	ctx := context.Background()
 
 	input := "User John Doe has a card 4111 1111 1111 1111 and email john@example.com."
