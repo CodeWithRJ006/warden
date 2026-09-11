@@ -54,17 +54,12 @@ The current implementation addresses the threats defined in the primary threat m
 - Supply-chain attacks
 
 ## Production Gaps
-To move this prototype to real production infrastructure, the following are required:
-- HA deployment not implemented
-- Secrets manager not implemented
-- KMS/HSM integration not implemented (for the token vault)
-- Multi-region failover not implemented
-- Managed Redis/Postgres not implemented
-- Formal compliance certification not performed
-- Live Razorpay production tools not connected
-- **Idempotency-Keys**: Idempotency is designed for (interface exists) but not yet wired into the gateway. Rate limiting is fully implemented and verified, but idempotency is not.
-- **Detokenization**: The gateway tokenizes raw inputs (e.g., "John Doe" -> `[PERSON_001]`) and passes the raw input to the tool for simplicity in this prototype. In production, the model would output the tool execution instruction using the token, and the gateway would detokenize it via the Vault before hitting the financial backend.
-- **Real LLM Integrations**: The `external-model` in `docker-compose` is just an HTTP 200 nginx stub used to test routing/failover logic only, not a real LLM.
+To move this prototype to real production infrastructure, the following architectural gaps must be addressed. They are explicitly documented here to distinguish between what is verified working vs. what is purely designed:
+- **Upstream Identity Verification**: The gateway reads the actor from the `X-Warden-Actor` HTTP header. In this prototype, there is no upstream API Gateway or Service Mesh verifying OIDC sessions or JWTs, meaning the header simulates trusted identity injection but does not yet cryptographically enforce it.
+- **Reverse Detokenization**: The gateway tokenizes raw inputs into the vault (e.g., "John Doe" -> `[PERSON_001]`), but currently passes the raw input to the tool execution block for simplicity. In production, the model would output the tool execution instruction using the token, and the gateway would detokenize it via the Vault immediately prior to execution.
+- **Idempotency**: The `Idempotency-Key` interface is designed but not yet wired into the gateway. Distributed rate limiting is fully implemented and verified, but idempotency is not.
+- **Real LLM Integrations**: The `external-model` in `docker-compose` is an HTTP 200 nginx stub used strictly to test routing and failover logic, not a real LLM.
+- **Infrastructure**: HA deployment, multi-region failover, Secret Managers, KMS/HSM integration for the token vault, and live Razorpay tool connections are out of scope for v0.1.0.
 
 ## Design Decisions (ADRs)
 - **ADR-001 Why deterministic policy?**: LLMs are non-deterministic; security boundaries cannot be.
