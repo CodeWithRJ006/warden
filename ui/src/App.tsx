@@ -63,11 +63,9 @@ export default function App() {
           <Shield color="var(--accent)" />
           Warden Control Plane
         </div>
-        <div className="tabs">
-          <button className="tab active">Decision Trace</button>
-          <button className="tab">Policy Explorer</button>
-          <button className="tab">Security Events</button>
-        </div>
+          <div className="tabs">
+            <button className="tab active">Live Decision Trace</button>
+          </div>
       </header>
 
       <main>
