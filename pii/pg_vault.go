@@ -28,7 +28,7 @@ func NewPostgresVault(ctx context.Context, dbURL string) (*PostgresVault, error)
 		)
 	`)
 	if err != nil {
-		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "42P07") {
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "42P07") && !strings.Contains(err.Error(), "23505") {
 			return nil, err
 		}
 	}
