@@ -41,14 +41,15 @@ func TestHandleExecute(t *testing.T) {
 
 	tests := []struct {
 		name           string
+		actor          string
 		body           map[string]interface{}
 		expectedStatus int
 		expectedDec    policy.Decision
 	}{
 		{
-			name: "valid request - allowed",
+			name:  "valid request - allowed",
+			actor: "finance-operator",
 			body: map[string]interface{}{
-				"actor":  "finance-operator",
 				"tool":   "create_refund",
 				"amount": 50.0,
 			},
@@ -56,9 +57,9 @@ func TestHandleExecute(t *testing.T) {
 			expectedDec:    policy.DecisionAllow,
 		},
 		{
-			name: "valid request - require approval",
+			name:  "valid request - require approval",
+			actor: "finance-operator",
 			body: map[string]interface{}{
-				"actor":  "finance-operator",
 				"tool":   "create_refund",
 				"amount": 50000.0,
 			},
@@ -66,15 +67,17 @@ func TestHandleExecute(t *testing.T) {
 			expectedDec:    policy.DecisionRequireApproval,
 		},
 		{
-			name: "missing actor",
+			name:  "missing actor",
+			actor: "",
 			body: map[string]interface{}{
 				"tool": "create_refund",
 			},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "malformed JSON",
-			body: nil,
+			name:  "malformed JSON",
+			actor: "finance-operator",
+			body:  nil,
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -89,6 +92,9 @@ func TestHandleExecute(t *testing.T) {
 			}
 
 			req, _ := http.NewRequest(http.MethodPost, "/v1/tools/execute", bytes.NewBuffer(bodyBytes))
+			if tt.actor != "" {
+				req.Header.Set("X-Warden-Actor", tt.actor)
+			}
 			rr := httptest.NewRecorder()
 
 			handler.ServeHTTP(rr, req)
@@ -113,6 +119,4 @@ func TestHandleExecute(t *testing.T) {
 	}
 }
 
-
 func (m *MockRouter) Route(ctx context.Context, dataClass string) (string, error) { return "local_model", nil }
-
